@@ -1,11 +1,17 @@
+// Debug helper
+console.log('Script loading...');
+
 // Add this at the beginning of your script.js file
 window.onerror = function(message, source, lineno, colno, error) {
+    console.error('Error:', message, 'at line', lineno);
     alert('Error: ' + message + '\nLine: ' + lineno);
     return true;
 };
 
 // Wrap your main code in a try-catch
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded');
+    
     try {
         // DOM Elements
         const prevDayBtn = document.getElementById('prevDay');
@@ -15,6 +21,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const person2WorkoutsEl = document.getElementById('person2Workouts');
         const person1NameEl = document.getElementById('person1Name');
         const person2NameEl = document.getElementById('person2Name');
+        
+        console.log('Elements found:', 
+            !!prevDayBtn, 
+            !!nextDayBtn, 
+            !!currentDateEl, 
+            !!person1WorkoutsEl, 
+            !!person2WorkoutsEl
+        );
         
         // Settings Modal Elements
         const settingsBtn = document.getElementById('settingsBtn');
@@ -80,8 +94,22 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Get workouts for the current date
             const dateKey = formatDate(currentDate);
-            const person1Workouts = getWorkoutsForDate('person1', dateKey);
-            const person2Workouts = getWorkoutsForDate('person2', dateKey);
+            
+            // Debug output to see what's happening
+            console.log('Current date:', dateKey);
+            console.log('Workout data:', workoutData);
+            
+            // Force generate sample workouts if none exist
+            const person1Workouts = generateSampleWorkouts('person1', currentDate);
+            const person2Workouts = generateSampleWorkouts('person2', currentDate);
+            
+            // Save these workouts to storage
+            if (!workoutData.person1) workoutData.person1 = {};
+            if (!workoutData.person2) workoutData.person2 = {};
+            
+            workoutData.person1[dateKey] = person1Workouts;
+            workoutData.person2[dateKey] = person2Workouts;
+            saveWorkoutData();
             
             // Render workouts for person 1
             if (person1Workouts.length === 0) {
@@ -467,6 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Your browser does not support or has disabled local storage. The app may not work properly.');
         }
     } catch (error) {
+        console.error('Initialization error:', error);
         alert('Error initializing app: ' + error.message);
     }
 }); 
