@@ -13,6 +13,40 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded');
     
     try {
+        // Initialize Firebase database
+        database = firebase.database();
+        
+        // Check for share code in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        shareCode = urlParams.get('share');
+        
+        if (shareCode) {
+            // If share code exists, use it to load data
+            workoutRef = database.ref('workouts/' + shareCode);
+            loadFromCloudStorage();
+        } else {
+            // Generate a new share code
+            shareCode = generateShareCode();
+            workoutRef = database.ref('workouts/' + shareCode);
+            
+            // Update URL with share code
+            const newUrl = window.location.origin + window.location.pathname + '?share=' + shareCode;
+            window.history.pushState({}, '', newUrl);
+            
+            // Show share link
+            showShareLink(newUrl);
+        }
+        
+        // Listen for changes in the database
+        workoutRef.on('value', (snapshot) => {
+            const cloudData = snapshot.val();
+            if (cloudData && Object.keys(cloudData).length > 0) {
+                // Only update if there's actual data
+                workoutData = cloudData;
+                renderWorkouts();
+            }
+        });
+        
         // DOM Elements
         const prevDayBtn = document.getElementById('prevDay');
         const nextDayBtn = document.getElementById('nextDay');
@@ -155,12 +189,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add event listener to the checkbox
             const checkbox = workoutEl.querySelector('input[type="checkbox"]');
             checkbox.addEventListener('change', function() {
+                console.log('Checkbox clicked for workout:', workout.id, 'New state:', this.checked);
                 toggleWorkoutCompletion(personId, dateKey, workout.id, this.checked);
             });
             
             // Add event listener to the accountability button
             const accountabilityBtn = workoutEl.querySelector('.accountability-btn');
             accountabilityBtn.addEventListener('click', function() {
+                console.log('Why not button clicked for workout:', workout.id);
                 openAccountabilityModal(personId, dateKey, workout.id);
             });
             
@@ -168,6 +204,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         function toggleWorkoutCompletion(personId, dateKey, workoutId, isCompleted) {
+            console.log('Toggling workout completion:', personId, dateKey, workoutId, isCompleted);
+            
             // Find and update the workout
             if (!workoutData[personId]) {
                 workoutData[personId] = {};
@@ -188,7 +226,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 saveWorkoutData();
-                renderWorkouts();
+                
+                // Update the UI immediately
+                const workoutEl = document.querySelector(`.workout-item[data-id="${workoutId}"]`);
+                if (workoutEl) {
+                    if (isCompleted) {
+                        workoutEl.classList.add('completed');
+                        workoutEl.classList.remove('incomplete');
+                    } else {
+                        workoutEl.classList.remove('completed');
+                        workoutEl.classList.add('incomplete');
+                    }
+                }
+                
+                // Save to cloud storage (we'll implement this next)
+                saveToCloudStorage();
             }
         }
         
@@ -340,7 +392,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         function saveWorkoutData() {
+            // Save to localStorage
             localStorage.setItem('coupleWorkoutData', JSON.stringify(workoutData));
+            
+            // Save to cloud
+            saveToCloudStorage();
         }
         
         // Settings functions
@@ -392,6 +448,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Store the current workout for later use
             currentWorkoutForAccountability = { personId, dateKey, workoutId };
             
+            // Highlight the workout item in red
+            const workoutEl = document.querySelector(`.workout-item[data-id="${workoutId}"]`);
+            if (workoutEl) {
+                workoutEl.classList.add('incomplete');
+            }
+            
             // Show the modal
             accountabilityModal.style.display = 'block';
         }
@@ -442,7 +504,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const workout = workoutData[personId][dateKey].find(w => w.id === workoutId);
                 if (workout) {
                     workout.consequence = consequence;
-                    saveWorkoutData();
+                    workout.reason = reason;
+                    workout.incomplete = true; // Mark as explicitly incomplete
+                    
+                    saveWorkoutData(); // This now also saves to cloud
                     renderWorkouts();
                 }
             }
@@ -493,6 +558,68 @@ document.addEventListener('DOMContentLoaded', function() {
         // Use this check before trying to use localStorage
         if (!isLocalStorageAvailable()) {
             alert('Your browser does not support or has disabled local storage. The app may not work properly.');
+        }
+
+        // Generate a random share code
+        function generateShareCode() {
+            return Math.random().toString(36).substring(2, 10);
+        }
+
+        // Show share link to the user
+        function showShareLink(url) {
+            const shareDiv = document.createElement('div');
+            shareDiv.className = 'share-link';
+            shareDiv.innerHTML = `
+                <p>Share this link with your boyfriend to sync your workout data:</p>
+                <div class="share-url">
+                    <input type="text" value="${url}" readonly>
+                    <button id="copyShareLink">Copy</button>
+                </div>
+            `;
+            
+            document.querySelector('.container').insertBefore(shareDiv, document.querySelector('main'));
+            
+            // Add copy functionality
+            document.getElementById('copyShareLink').addEventListener('click', function() {
+                const shareInput = shareDiv.querySelector('input');
+                shareInput.select();
+                document.execCommand('copy');
+                this.textContent = 'Copied!';
+                setTimeout(() => {
+                    this.textContent = 'Copy';
+                }, 2000);
+            });
+        }
+
+        // Save data to Firebase
+        function saveToCloudStorage() {
+            if (workoutRef) {
+                workoutRef.set(workoutData)
+                    .then(() => {
+                        console.log('Data saved to cloud successfully');
+                    })
+                    .catch((error) => {
+                        console.error('Error saving to cloud:', error);
+                    });
+            }
+        }
+
+        // Load data from Firebase
+        function loadFromCloudStorage() {
+            if (workoutRef) {
+                workoutRef.once('value')
+                    .then((snapshot) => {
+                        const cloudData = snapshot.val();
+                        if (cloudData) {
+                            workoutData = cloudData;
+                            renderWorkouts();
+                            console.log('Data loaded from cloud successfully');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error loading from cloud:', error);
+                    });
+            }
         }
     } catch (error) {
         console.error('Initialization error:', error);

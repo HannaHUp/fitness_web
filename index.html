@@ -96,6 +96,11 @@
         </div>
     </div>
 
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <!-- Firebase Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
     <script>
         // Test localStorage
         try {
@@ -106,6 +111,20 @@
         } catch (e) {
             document.getElementById('localStorage-test').textContent = 'localStorage test: ERROR - ' + e.message;
         }
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            authDomain: "workout-tracker-XXXXX.firebaseapp.com",
+            databaseURL: "https://workout-tracker-XXXXX.firebaseio.com",
+            projectId: "workout-tracker-XXXXX",
+            storageBucket: "workout-tracker-XXXXX.appspot.com",
+            messagingSenderId: "XXXXXXXXXXXX",
+            appId: "1:XXXXXXXXXXXX:web:XXXXXXXXXXXXXXXXXXXXXXXX"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
     </script>
     <script src="./script.js"></script>
 </body>
